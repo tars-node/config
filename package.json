@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://git.code.oa.com/taf/taf-config.git"
+    "url": "https://github.com/tars-node/config.git"
   },
   "keywords": [
     "tars",
