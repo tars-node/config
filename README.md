@@ -13,7 +13,7 @@ var tarsConfig = new tarsConfigHelper(options);
 
 ### options
 
-__如果服务通过 [node-agent](http://git.oa.com/tars/node-agent/tree/master "node-agent") （或在TARS平台）运行，则无需填写。__
+__如果服务通过 [node-agent](https://github.com/tars-node/node-agent "node-agent") （或在TARS平台）运行，则无需填写。__
 
 * __app__: tars app名称
 * __server__: 服务名称
