@@ -1,120 +1,170 @@
-# @tars/config
+# Tars-Config
+
+`Tars` 框架中用于获取服务配置文件。
 
 ## 安装
-``` js
-npm install @tars/config
-``` 
+`npm install @tars/config`
 
-## 使用
-``` js
-var tarsConfigHelper = require("@tars/config");
-var tarsConfig = new tarsConfigHelper(options);
-```
+## 实例化
 
-### options
+使用前需先实例化 `var config = new TarsConfig(data)` 对象
 
-__如果服务通过 [node-agent](http://git.oa.com/tars/node-agent/tree/master "node-agent") （或在TARS平台）运行，则无需填写。__
+其中：
 
-* __app__: tars app名称
-* __server__: 服务名称
+__data__: 为 tars 配置文件路径 或 已配置的 `@tars/config-parser` 实例。
 
-# 方法调用
+__如果服务通过 [node-agent](https://github.com/tars-node/node-agent "node-agent") （或在Tars平台）运行，则无需传入 `data` 。__
 
-事先说明，以下几个方法调用，configOptions可以是一个object,包含以下参数。
+## 枚举
 
-struct ConfigInfo
-{
-	//业务名称
-	0 require string appname;
-	//服务名称
-	1 require string servername;
-	//配置文件名称
-	2 require string filename;
-	//是否只获取应用配置,默认为false,如果为true则servername可以为空
-	3 require bool bAppOnly=false;
-	//服务所在节点(ip)
-	4 optional string host;
-	//set分组名称
-	5 optional string setdivision;
-};
+### FORMAT
 
-所有的方法调用均返回 [Promise] 对象。
+定义了配置文件的格式：
 
-## loadConfig(configOptions[, configFormat])
+* __C__: C++ 服务格式
+* __JSON__: JSON 格式
+* __TEXT__: 普通文本（自定义格式）
 
-获取配置文件内容
+### LOCATION
 
-__configOptions__: {string/object} tars配置文件名或者一个Object(见上面configOptions说明)
-__configFormat__: {string} 转换格式，如果不传，每个配置项直接返回字符串。"json":自动转为json格式，"c":c++格式的配置项
+定义了配置文件存放的区域：
 
-``` js
-tarsConfig.loadConfig("Server.conf").then(function (data) {
-    console.log("loadConfig back", data);
+* __APP__: 配置文件存放于业务集下
+* __SERVER__: 配置文件存放于服务下
+
+## 接口
+
+### loadConfig([files ,]options)
+
+获取配置文件内容。
+
+`files(String|Array)` 可以为单一文件名也可是数组，如不填写则默认获取所有文件内容。
+
+`options(Object)` 为可选项，接受如下参数：
+
+* __format__: 文件格式， *默认为 FORMAT.C*   
+* __location__: 存放区域， *默认为 LOCATION.SERVER*
+
+调用成功后返回（Promise.resolve）由如下对象组成的数组：
+
+* __filename__: 文件名
+* __content__: 文件解析后内容
+
+__如仅获取单一文件则返回文件解析后的内容__
+
+#### 例子
+
+获取 `a.conf` 文件内容：
+``` javascript
+config.loadConfig("a.conf").then(function(data) {
+    console.log("content:", data);
 }, function (err) {
     console.error("loadConfig err", err);
 });
 ```
 
-## getConfigList(configOptions)
-
-获取配置文件列表
-
-__configOptions__: {string/object} tars配置文件名或者一个Object(见上面configOptions说明)，也可以不传，那么就直接使用默认的app和server。
-
-``` js
-tarsConfig.getConfigList().then(function(configList) {
-    console.log("examples:getConfigList back", configList);
-},
-function(err) {
-    console.error("getConfigList error", err);
+获取 `a.conf` 文件内容并以 json 进行解析：
+``` javascript
+config.loadConfig("a.conf", {format : config.FORMAT.JSON}).then(function(data) {
+    console.log("content:", data);
+}, function (err) {
+    console.error("loadConfig err", err);
 });
 ```
 
-
-## getAllConfigData([configOptions, configFormat])
-
-获取配置文件列表以及配置项的内容
-
-__configOptions__: {string/object} tars配置文件名或者一个Object(见上面configOptions说明)，可缺省。
-__configFormat__: {string} 转换格式，默认配置项直接返回字符串。"json":自动转为json格式，"c":c++格式的配置项
-
-返回的对象内，key：文件名，value：文件内容
-
-``` js
-tarsConfig.getAllConfigData().then(function(configDatas) {
-    console.log("examples:getAllConfigData back", configDatas);
-},
-function(err) {
-    console.error("getAllConfigData error", err);
+获取存在于业务集中的 `a.conf` 文件内容：
+``` javascript
+config.loadConfig("a.conf", {location : config.LOCATION.APP}).then(function(data) {
+    console.log("content:", data);
+}, function (err) {
+    console.error("loadConfig err", err);
 });
 ```
 
-## setTimeout(iTimeout)
-
-设置调用超时时间，默认是30s，参数单位为 ms
-
-## loadServerObject(configFormat)
-
-加载服务默认的配置项，并且转换为json
-
-__configFormat__: {string} "c":c++格式的配置项（默认值），"json"：json格式配置项
-
-返回的对象内，key：文件名，value：文件内容
-
-``` js
-tarsConfig.loadServerObject().then(function(serverObject) {
-    console.log("serverObject",serverObject);
+获取 `a.conf` 与 `b.conf` 文件内容：
+``` javascript
+config.loadConfig(["a.conf", "b.conf"]).then(function(data) {
+    data.forEach(function(item) {
+        console.log("filename:", item.filename);
+        console.log("content:", item.content);
+    });
+}, function (err) {
+    console.error("loadConfig err", err);
 });
 ```
 
-# 事件支持
+获取服务所有配置文件内容：
+``` javascript
+config.loadConfig().then(function(data) {
+    data.forEach(function(item) {
+        console.log("filename:", item.filename);
+        console.log("content:", item.content);
+    });
+}, function (err) {
+    console.error("loadConfig err", err);
+});
+```
 
-## configPushed
+### loadList(options)
 
-从TARS配置平台push配置文件的时候，将触发此事件
+获取配置文件列表（所有配置文件名）。
 
-``` js
-tarsConfig.on("configPushed", function(filename, content) {
-    console.log("config pushed", filename, content);
+`options(Object)` 为可选项，接受如下参数
+
+* __location__: 存放区域， *默认为 LOCATION.SERVER*
+
+调用成功后返回（Promise.resolve）由文件名组成的数组。
+
+#### 例子
+
+获取服务的所有配置文件名：
+```javascript
+config.loadList().then(function(filelist) {
+    console.log("files:", filelist);
+}, function(err) {
+    console.log("loadList error", err);
+});
+```
+
+### loadServerConfig(options)
+
+获取默认配置文件（文件名由 `App.Server.conf` 组成）。
+
+`options(Object)` 为可选项，接受如下参数
+
+* __format__: 文件格式， *默认为 FORMAT.C*   
+
+调用成功后返回（Promise.resolve）返回文件解析后的内容。
+
+#### 例子
+
+获取服务默认配置文件：
+```javascript
+config.loadServerConfig().then(function(data) {
+    console.log("content:", data);
+}, function(err) {
+    console.log("loadServerConfig error", err);
+});
+```
+
+## 事件
+
+### configPushed
+
+由Tars平台向服务Push配置文件的时将触发此事件。
+
+回调会给出Push下发的文件名。
+
+#### 例子
+
+监听Push事件，并获取Push文件内容：
+```javascript
+config.on("configPushed", function(filename) {
+    console.log("config pushed", filename);
+    config.loadConfig(filename).then(function(data) {
+        console.log("content:", data);
+    }, function(err) {
+        console.error("loadConfig err", err);
+    });
 });
 ```
