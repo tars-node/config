@@ -25,7 +25,7 @@ var Promise = require("@tars/utils").Promise;
 var ConfigParser = require("@tars/utils").Config;
 var TarsClient = require("@tars/rpc").Communicator.New();
 
-var tars = require("./ConfigProxy").tars;
+var tars = require("./ConfigFProxy").tars;
 
 var FORMAT = {
 	'C' : 'C',

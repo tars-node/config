@@ -1,6 +1,6 @@
 {
   "name": "@tars/config",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "TARS 框架中用于获取服务配置文件",
   "main": "index.js",
   "dependencies": {
