@@ -18,221 +18,191 @@
 
 var util = require("util");
 var assert = require("assert");
-var Promise = require("bluebird");
-var EventEmitter = require('events').EventEmitter;
+var EventEmitter = require("events").EventEmitter;
 
+var Promise = require("@tars/utils").Promise;
+var ConfigParser = require("@tars/utils").Config;
 var TarsClient = require("@tars/rpc").Communicator.New();
-var ConfigParser = require('@tars/utils').Config;
+
 var tars = require("./ConfigFProxy").tars;
 
-var parseConf = function(content, configFormat) {
-    var ret = content;
-    if (configFormat === "c") {
-        var configParser = new ConfigParser();
-        configParser.parseText(content, 'utf8');
-        ret = configParser.data;
-    } else if (configFormat === "json") {
-        ret = JSON.parse(content);
-    }
+var FORMAT = {
+	'C' : 'C',
+	'JSON' : 'JSON',
+	'TEXT' : 'TEXT'
+};
+var LOCATION = {
+    'SERVER' : 'SERVER',
+    'APP' : 'APP'
+};
+var CONFIG_OBJ = "tars.tarsconfig.ConfigObj";
+var TIMEOUT = 30 * 1000;
 
-    return ret;
+function TarsConfig(obj) {
+	var parser;
+
+	obj = obj || process.env.TARS_CONFIG;
+
+	assert(obj, 'TARS_CONFIG is not in env and init argument is neither an Object nor a String.');
+
+	if (typeof obj === 'string' && obj !== '') {
+		TarsClient.initialize(obj);
+		parser = new ConfigParser();
+		parser.parseFile(obj);
+	} else {
+		parser = obj;
+	}
+
+	assert(typeof parser === 'object', 'init argument not an TARSCnfigureObj');
+
+	this.ConfigObj = parser.get('tars.application.server.config', CONFIG_OBJ);
+
+	this.app = parser.get('tars.application.server.app');
+	assert(this.app, 'app not found in TARS_CONFIG(tars.application.server.app)');
+
+	this.server = parser.get('tars.application.server.server');
+	assert(this.server, 'server not found in TARS_CONFIG(tars.application.server.server)');
+
+	this.localip = parser.get('tars.application.server.localip');
+	assert(this.localip, 'localip not found in TARS_CONFIG(tars.application.server.localip)');
+
+	this.containername = parser.get('tars.application.server.container');
+
+	if (parser.get('tars.application.enableset', '').toLowerCase() === 'y') {
+		this.setdivision = parser.get('tars.application.setdivision');
+		assert(this.setdivision, 'setdivision is empty in TARS_CONFIG(tars.application.setdivision)');
+	}
+
+	this.timeout = TIMEOUT;
+
+	this.setMaxListeners(0);
 }
 
-function tarsConfigHelper(options) {
-    var self = this;
-    var proxyName = "tars.tarsconfig.ConfigObj";
-    var confFilePath = null;
+util.inherits(TarsConfig, EventEmitter);
 
-    if (process.env.TARS_CONFIG) {
-        confFilePath = process.env.TARS_CONFIG;
-    } else {
-        if (options && options.confFile) {
-            confFilePath = options.confFile;
-        }
-    }
+TarsConfig.prototype.FORMAT = FORMAT;
+TarsConfig.prototype.LOCATION = LOCATION;
 
-    if (confFilePath) {
-        TarsClient.initialize(confFilePath);
-        var configParser = new ConfigParser();
-        configParser.parseFile(confFilePath, 'utf8');
+TarsConfig.prototype._init = function() {
+	var ths = this;
 
-        this.app = configParser.get('tars.application.server.app', "");
-        this.server = configParser.get('tars.application.server.server', "");
-        this.localip = configParser.get('tars.application.server.localip', "");
+	this._client = TarsClient.stringToProxy(tars.ConfigProxy, this.ConfigObj);
+	this._client.setTimeout(this.timeout);
 
-        var enableset = configParser.get('tars.application.enableset', "");
-        if (enableset.toLowerCase() === "y") {
-            this.setdivision = configParser.get('tars.application.setdivision', "");
-        }
+	process.on('message', function(obj) {
+		if (obj.cmd === "tars.loadconfig") {
+			ths.emit("configPushed", obj.data);
+		}
+	});
+};
 
-        proxyName = configParser.get('tars.application.server.config', "");
-    }
+TarsConfig.prototype.loadServerConfig = function(options) {
+	assert(!options || !options.isAppConfig, 'Can\'t load server config in app');
 
-    if (!process.env.TARS_CONFIG) {
-        if (options && options.tarsConfigObjProxyName) {
-            proxyName = options.tarsConfigObjProxyName;
-        } else {
-            assert.fail('must be specify tars config obj name');
-        }
-    }
+	return this._loadSingleConfig(this.server + ".conf", options);
+};
 
-    if (options) {
-        if (options.app) {
-            this.app = options.app;
-        }
+TarsConfig.prototype._loadSingleConfig = function(filename, options) {
+	var info = new tars.ConfigInfo(), opts = options || {};
+	info.appname = this.app;
+	info.servername = this.server;
+	info.filename = filename;
+	info.host = this.localip;
+	if (this.setdivision) {
+		info.setdivision = this.setdivision;
+	}
+	if (this.containername) {
+		info.containername = this.containername;
+	}
+	if (LOCATION.hasOwnProperty(opts.location)) {
+		info.bAppOnly = (opts.location === LOCATION.APP);
+		if (info.bAppOnly) {
+			info.servername = '';
+		}
+	} else {
+		info.bAppOnly = false;
+	}
 
-        if (options.server) {
-            this.server = options.server;
-        }
+	if (!this._client) {
+		this._init();
+	}
 
-        if (options.host) {
-            this.localip = options.host;
-        }
-    }
+	return this._client.loadConfigByInfo(info).then(function(resp) {
+		var content = resp.response.arguments.config, format = FORMAT.C;
 
-    assert(this.app && this.server, "can not get app or server name");
+		if (FORMAT.hasOwnProperty(opts.format)) {
+			format = opts.format;
+		}
+		switch (format) {
+			case FORMAT.C : {
+				var parser = new ConfigParser();
+				parser.parseText(content, "utf8");
+				return parser.data;
+			}
+			case FORMAT.JSON : {
+				return JSON.parse(content);
+			}
+			case FORMAT.TEXT : {
+				return content;
+			}
+		}
+	});
+};
 
-    this.options = options;
-    this.prx = TarsClient.stringToProxy(tars.ConfigProxy, proxyName);
-    this.setTimeout();
+TarsConfig.prototype._loadMultiConfig = function(fileList, options) {
+	var ths = this;
 
-    this.setMaxListeners(0);
+	return Promise.all(fileList.map(function(filename) {
+		return ths.loadConfig(filename, options).then(function(content) {
+			return {
+				"filename" : filename, 
+				"content" : content
+			};
+		});
+	}));
+};
 
-    process.on("message", function(obj) {
-        if (obj.cmd === "tars.loadconfig") {
-            self.loadConfig(obj.data).then(function(configContent) {
-                self.emit("configPushed", obj.data, configContent);
-            }, function () {});
-        }
-    });
-}
-util.inherits(tarsConfigHelper, EventEmitter);
+TarsConfig.prototype.loadList = function(options) {
+	var info = new tars.GetConfigListInfo(), opts = options || {};
+	info.appname = this.app;
+	info.servername = this.server;
+	if (this.setdivision) {
+		info.setdivision = this.setdivision;
+	}
+	if (this.containername) {
+		info.containername = this.containername;
+	}
+	if (LOCATION.hasOwnProperty(opts.location)) {
+		info.bAppOnly = (opts.location === LOCATION.APP);
+		if (info.bAppOnly) {
+			info.servername = '';
+		}
+	} else {
+		info.bAppOnly = false;
+	}
 
-tarsConfigHelper.prototype.getConfigInfoObj = function (configOptions, isForList, isListAllFun) {
-    var configInfo;
+	if (!this._client) {
+		this._init();
+	}
 
-    if (isListAllFun && isForList) {
-        if (configOptions instanceof tars.GetConfigListInfo) {
-            return configOptions;
-        }
-        configInfo = new tars.GetConfigListInfo();
-    } else {
-        if (configOptions instanceof tars.ConfigInfo) {
-            return configOptions;
-        }
-        configInfo = new tars.ConfigInfo();
-    }
+	return this._client.ListAllConfigByInfo(info).then(function(resp) {
+		return resp.response.arguments.vf.value;
+	});
+};
 
-    configInfo.appname = this.app;
+TarsConfig.prototype.loadConfig = function(fileList, options) {
+	var ths = this;
 
-    var servername = this.server;
-    var bAppOnly = false;
-    var host = this.localip;
-    var filename = "";
+	if (Array.isArray(fileList)) {
+		return this._loadMultiConfig(fileList, options);
+	} else if (typeof fileList === 'string' && fileList !== '') {
+		return this._loadSingleConfig(fileList, options);
+	} else {
+		assert(!options || !options.isAppConfig, 'Can\'t load all app config');
+		return this.loadList(options).then(function(_fileList) {
+			return ths._loadMultiConfig(_fileList, options);
+		});
+	}
+};
 
-    if (configOptions) {
-        if (typeof configOptions === "object") {
-            filename = configOptions.filename || "";
-            if (configOptions.bAppOnly) {
-                bAppOnly = true;
-            } else {
-                if (configOptions.servername) {
-                    servername = configOptions.servername;
-                }
-            }
-            host = configOptions.host || "";
-        } else {
-            filename = configOptions;
-        }
-    }
-
-    if (servername === "") {
-        bAppOnly = true;
-    }
-
-    if (bAppOnly) {
-        servername = "";
-    }
-
-    configInfo.servername = servername;
-    configInfo.host = host || '';
-    configInfo.setdivision = this.setdivision || '';
-    configInfo.bAppOnly = bAppOnly;
-
-    if (!isForList) {
-        configInfo.filename = filename;
-    }
-
-    return configInfo;
-}
-
-/*
- @description:加载服务默认的配置项,并且转换为json
- @param：configFormat {string} "c":c++格式的配置项，默认值。"json"：配置项是json格式的
- */
-tarsConfigHelper.prototype.loadServerObject = function (configFormat) {
-    var _configFormat = configFormat || "c";
-    return this.loadConfig(this.server + ".conf", _configFormat);
-}
-
-/*
- @description:获取节点的配置内容
- */
-tarsConfigHelper.prototype.loadConfig = function (configOptions, configFormat) {
-    var configInfo = this.getConfigInfoObj(configOptions, false);
-
-    return this.prx.loadConfigByInfo(configInfo).then(function(retData) {
-        return parseConf(retData.response.arguments.config, configFormat);
-    });
-}
-
-/*
- @description:获取节点的配置列表
- */
-tarsConfigHelper.prototype.getConfigList = function (configOptions) {
-    var configInfo = this.getConfigInfoObj(configOptions, true, true);
-
-    configInfo.host = "";
-
-    return this.prx.ListAllConfigByInfo(configInfo).then(function(retData) {
-        return retData.response.arguments.vf.value;
-    });
-}
-
-/*
- @description:获取节点的所有配置项，promise返回的object，key是文件名，value是配置内容
- */
-tarsConfigHelper.prototype.getAllConfigData = function (configOptions, configFormat) {
-    var configInfoContent = this.getConfigInfoObj(configOptions,false);
-
-    var self = this;
-
-    return this.getConfigList(configOptions).then(function(configList) {
-        var pActions = [];
-
-        configList.forEach(function (cItem) {
-            var fConfig = configInfoContent;
-            fConfig.filename = cItem;
-            pActions.push(self.loadConfig(fConfig).then(function(configContent) {
-                return {filename: cItem, content: configContent};
-            }));
-        });
-
-        return Promise.all(pActions).then(function(allData) {
-            var retObj = {};
-
-            allData.forEach(function(cItem) {
-                retObj[cItem.filename] = parseConf(cItem.content, configFormat);
-            });
-
-            return retObj;
-        });
-    });
-}
-
-tarsConfigHelper.prototype.setTimeout = function (iTimeout) {
-    var timeout = iTimeout || 30 * 1000;
-    this.prx.setTimeout(timeout);
-}
-
-exports = module.exports = tarsConfigHelper;
+module.exports = exports = TarsConfig;
