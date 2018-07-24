@@ -18,7 +18,6 @@
 
 var util = require("util");
 var assert = require("assert");
-var iconv = require("iconv-lite");
 var EventEmitter = require("events").EventEmitter;
 
 var Promise = require("@tars/utils").Promise;
@@ -129,7 +128,7 @@ TarsConfig.prototype._loadSingleConfig = function(filename, options) {
 	}
 
 	return this._client.loadConfigByInfo(info).then(function(resp) {
-		var content = iconv.decode(resp.response.arguments.config, "GBK"), format = FORMAT.C;
+		var content = resp.response.arguments.config, format = FORMAT.C;
 
 		if (FORMAT.hasOwnProperty(opts.format)) {
 			format = opts.format;
