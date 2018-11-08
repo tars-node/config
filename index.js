@@ -191,16 +191,17 @@ TarsConfig.prototype.loadList = function(options) {
 };
 
 TarsConfig.prototype.loadConfig = function(fileList, options) {
-	var ths = this;
+	var ths = this, _options = null;
 
 	if (Array.isArray(fileList)) {
 		return this._loadMultiConfig(fileList, options);
 	} else if (typeof fileList === 'string' && fileList !== '') {
 		return this._loadSingleConfig(fileList, options);
 	} else {
-		assert(!options || !options.isAppConfig, 'Can\'t load all app config');
-		return this.loadList(options).then(function(_fileList) {
-			return ths._loadMultiConfig(_fileList, options);
+		_options = fileList;
+		assert(!_options || !_options.isAppConfig, 'Can\'t load all app config');
+		return this.loadList(_options).then(function(_fileList) {
+			return ths._loadMultiConfig(_fileList, _options);
 		});
 	}
 };
