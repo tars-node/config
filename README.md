@@ -13,7 +13,7 @@
 
 __data__: 为 tars 配置文件路径 或 已配置的 `@tars/config-parser` 实例。
 
-__如果服务通过 [node-agent](https://github.com/tars-node/node-agent "node-agent") （或在Tars平台）运行，则无需传入 `data` 。__
+__如果服务通过 [node-agent](https://www.npmjs.com/package/@tars/node-agent "node-agent") （或在Tars平台）运行，则无需传入 `data` 。__
 
 ## 枚举
 
