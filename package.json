@@ -1,6 +1,7 @@
 {
   "name": "@tars/config",
-  "version": "2.0.4",
+  "version": "2.0.5",
+  "types": "tars-config.d.ts",
   "description": "TARS 框架中用于获取服务配置文件",
   "main": "index.js",
   "dependencies": {
