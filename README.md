@@ -1,61 +1,58 @@
 # Tars-Config
-
-`Tars` 框架中用于获取服务配置文件。
-
-## 安装
+Used to get config files in Tars framework
+## Installation
 `npm install @tars/config`
 
-## 实例化
+## Instantiation
 
-使用前需先实例化 `var config = new TarsConfig(data)` 对象
+Instantiate the object before using it:   
+`var config = new TarsConfig (data) `
 
-其中：
+__data__: The path to the config file or the configured `@tars/config-parser` instance.
 
-__data__: 为 tars 配置文件路径 或 已配置的 `@tars/config-parser` 实例。
+__If the server runs by [node-agent](https://www.npmjs.com/package/@tars/node-agent "node-agent") （or on Tars platform，then you don't need to pass `data` 。__
 
-__如果服务通过 [node-agent](https://www.npmjs.com/package/@tars/node-agent "node-agent") （或在Tars平台）运行，则无需传入 `data` 。__
-
-## 枚举
+## Enum
 
 ### FORMAT
 
-定义了配置文件的格式：
+Defines the format of the config file:
 
-* __C__: C++ 服务格式
-* __JSON__: JSON 格式
-* __TEXT__: 普通文本（自定义格式）
+* __C__: C++ Config file formart
+* __JSON__: JSON format
+* __TEXT__: Normal text（Custom format）
 
 ### LOCATION
 
-定义了配置文件存放的区域：
+Defines the position where the config files are stored:
 
-* __APP__: 配置文件存放于业务集下
-* __SERVER__: 配置文件存放于服务下
+* __APP__: Config files are stored in the application
+* __SERVER__: Config files are stored in the servers
 
-## 接口
+## Methods
 
 ### loadConfig([files ,]options)
 
-获取配置文件内容。
+Get config file content。
 
-`files(String|Array)` 可以为单一文件名也可是数组，如不填写则默认获取所有文件内容。
+`files(String|Array)` It can be a single file name or an array, and if it is left empty, all the file contents will be obtained by default.
 
-`options(Object)` 为可选项，接受如下参数：
+`options(Object)` Optional, accept the following parameters:
 
-* __format__: 文件格式， *默认为 FORMAT.C*   
-* __location__: 存放区域， *默认为 LOCATION.SERVER*
+* __format__: File format， *default to e FORMAT.C*   
+* __location__: Stored position， *default to be LOCATION.SERVER*
 
-调用成功后返回（Promise.resolve）由如下对象组成的数组：
+Return array of following objects after call success:
 
-* __filename__: 文件名
-* __content__: 文件解析后内容
+* __filename__: Filename
+* __content__: Content after file parsing
 
-__如仅获取单一文件则返回文件解析后的内容__
+__If only get one single file, it will return the parsed content of the file.__
 
-#### 例子
+#### Example
 
-获取 `a.conf` 文件内容：
-``` javascript
+Get the content of `a.conf` ：
+```javascript
 config.loadConfig("a.conf").then(function(data) {
     console.log("content:", data);
 }, function (err) {
@@ -63,7 +60,7 @@ config.loadConfig("a.conf").then(function(data) {
 });
 ```
 
-获取 `a.conf` 文件内容并以 json 进行解析：
+Get the content of `a.conf` and parse by json：
 ``` javascript
 config.loadConfig("a.conf", {format : config.FORMAT.JSON}).then(function(data) {
     console.log("content:", data);
@@ -72,7 +69,7 @@ config.loadConfig("a.conf", {format : config.FORMAT.JSON}).then(function(data) {
 });
 ```
 
-获取存在于业务集中的 `a.conf` 文件内容：
+Get content of `a.conf` which is stored in application：
 ``` javascript
 config.loadConfig("a.conf", {location : config.LOCATION.APP}).then(function(data) {
     console.log("content:", data);
@@ -81,7 +78,7 @@ config.loadConfig("a.conf", {location : config.LOCATION.APP}).then(function(data
 });
 ```
 
-获取 `a.conf` 与 `b.conf` 文件内容：
+Get content of `a.conf` and `b.conf` ：
 ``` javascript
 config.loadConfig(["a.conf", "b.conf"]).then(function(data) {
     data.forEach(function(item) {
@@ -93,7 +90,7 @@ config.loadConfig(["a.conf", "b.conf"]).then(function(data) {
 });
 ```
 
-获取服务所有配置文件内容：
+Get all config files of server：
 ``` javascript
 config.loadConfig().then(function(data) {
     data.forEach(function(item) {
@@ -107,17 +104,17 @@ config.loadConfig().then(function(data) {
 
 ### loadList(options)
 
-获取配置文件列表（所有配置文件名）。
+Get list of config files（name of all config files）。
 
-`options(Object)` 为可选项，接受如下参数
+`options(Object)` Optional, accept the following parameters:
 
-* __location__: 存放区域， *默认为 LOCATION.SERVER*
+* __location__: Stored position， *default to be LOCATION.SERVER*
 
-调用成功后返回（Promise.resolve）由文件名组成的数组。
+Return array of file names after call success.
 
-#### 例子
+#### Example
 
-获取服务的所有配置文件名：
+Get all config file names of server:
 ```javascript
 config.loadList().then(function(filelist) {
     console.log("files:", filelist);
@@ -128,17 +125,16 @@ config.loadList().then(function(filelist) {
 
 ### loadServerConfig(options)
 
-获取默认配置文件（文件名由 `App.Server.conf` 组成）。
+Get default config file（name is like `App.Server.conf`）。
 
-`options(Object)` 为可选项，接受如下参数
+`options(Object)` Optional, accept the following parameters:
 
-* __format__: 文件格式， *默认为 FORMAT.C*   
+* __format__: File format， *default to be FORMAT.C*   
 
-调用成功后返回（Promise.resolve）返回文件解析后的内容。
+Return parsed Content of config file after call success.
+#### Example
 
-#### 例子
-
-获取服务默认配置文件：
+Get default config file：
 ```javascript
 config.loadServerConfig().then(function(data) {
     console.log("content:", data);
@@ -147,17 +143,17 @@ config.loadServerConfig().then(function(data) {
 });
 ```
 
-## 事件
+## Events
 
 ### configPushed
 
-由Tars平台向服务Push配置文件的时将触发此事件。
+Emited when push config file to Tars platform.
 
-回调会给出Push下发的文件名。
+The callback function while provide pushed filename.
 
-#### 例子
+#### Example
 
-监听Push事件，并获取Push文件内容：
+Listen to push event, and get pushed file content :
 ```javascript
 config.on("configPushed", function(filename) {
     console.log("config pushed", filename);
